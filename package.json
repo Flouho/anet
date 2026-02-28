@@ -1,0 +1,9 @@
+{
+  "name": "anet",
+  "version": "1.0.0",
+  "description": "Anonymous file transfer with resumable chunk uploads",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
