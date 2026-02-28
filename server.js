@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const { promisify } = require('util');
+const { execFile } = require('child_process');
 let fsp = fs.promises;
 if (!fsp) {
   fsp = {
@@ -34,6 +35,8 @@ const STORAGE_DIR = path.join(ROOT, 'storage');
 const TMP_DIR = path.join(STORAGE_DIR, 'tmp');
 const FILE_DIR = path.join(STORAGE_DIR, 'files');
 const INDEX_FILE = path.join(STORAGE_DIR, 'index.json');
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 * 1024;
+const MAX_DISK_USAGE_AFTER_UPLOAD = 0.8;
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -41,6 +44,8 @@ const MIME_TYPES = {
   '.js': 'application/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
 };
+
+const execFileAsync = promisify(execFile);
 
 async function ensureDir(targetPath) {
   try {
@@ -187,6 +192,39 @@ function normalizeMaxDownloads(value) {
   return Math.max(1, Math.floor(num));
 }
 
+
+async function getDiskStats(targetPath) {
+  if (typeof fsp.statfs === 'function') {
+    const stat = await fsp.statfs(targetPath);
+    const blockSize = stat.bsize || stat.frsize || 1;
+    return {
+      totalBytes: Number(stat.blocks) * Number(blockSize),
+      freeBytes: Number(stat.bavail || stat.bfree) * Number(blockSize),
+    };
+  }
+
+  const { stdout } = await execFileAsync('df', ['-kP', targetPath]);
+  const lines = stdout.trim().split('\n');
+  const line = lines[lines.length - 1].trim().split(/\s+/);
+  const totalKb = Number(line[1]);
+  const availKb = Number(line[3]);
+  return {
+    totalBytes: totalKb * 1024,
+    freeBytes: availKb * 1024,
+  };
+}
+
+function checkUploadCapacity(fileSize, diskStats) {
+  if (!diskStats.totalBytes) {
+    return { ok: false, projectedUsedRatio: 1 };
+  }
+  const projectedUsedRatio = (diskStats.totalBytes - diskStats.freeBytes + fileSize) / diskStats.totalBytes;
+  return {
+    ok: projectedUsedRatio < MAX_DISK_USAGE_AFTER_UPLOAD,
+    projectedUsedRatio,
+  };
+}
+
 async function handleApi(req, res, url) {
   try {
     if (req.method === 'POST' && url.pathname === '/api/upload/init') {
@@ -204,6 +242,31 @@ async function handleApi(req, res, url) {
 
       if (!fileName || !fileSize || !totalChunks || !chunkSize) {
         return sendJson(res, 400, { error: '缺少必要参数' });
+      }
+
+      const normalizedFileSize = Number(fileSize);
+      if (!Number.isFinite(normalizedFileSize) || normalizedFileSize <= 0) {
+        return sendJson(res, 400, { error: '文件大小无效' });
+      }
+      if (normalizedFileSize >= MAX_FILE_SIZE_BYTES) {
+        return sendJson(res, 400, { error: '文件大小必须小于 5GB' });
+      }
+
+      const normalizedTotalChunks = Number(totalChunks);
+      const normalizedChunkSize = Number(chunkSize);
+      if (!Number.isInteger(normalizedTotalChunks) || normalizedTotalChunks <= 0) {
+        return sendJson(res, 400, { error: '分片总数无效' });
+      }
+      if (!Number.isInteger(normalizedChunkSize) || normalizedChunkSize <= 0) {
+        return sendJson(res, 400, { error: '分片大小无效' });
+      }
+
+      const diskStats = await getDiskStats(STORAGE_DIR);
+      const capacity = checkUploadCapacity(normalizedFileSize, diskStats);
+      if (!capacity.ok) {
+        return sendJson(res, 400, {
+          error: `磁盘空间不足：上传后磁盘占用将达到 ${(capacity.projectedUsedRatio * 100).toFixed(2)}%，必须低于 80%`,
+        });
       }
 
       const db = await readIndex();
@@ -226,10 +289,10 @@ async function handleApi(req, res, url) {
         code,
         fingerprint,
         fileName,
-        fileSize,
+        fileSize: normalizedFileSize,
         mimeType: mimeType || 'application/octet-stream',
-        totalChunks,
-        chunkSize,
+        totalChunks: normalizedTotalChunks,
+        chunkSize: normalizedChunkSize,
         maxDownloads: normalizeMaxDownloads(maxDownloads),
         downloadCount: 0,
         uploadedChunks: [],

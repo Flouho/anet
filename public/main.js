@@ -1,4 +1,5 @@
 const CHUNK_SIZE = 5 * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 * 1024;
 const LOGIN_SECRET = 'Welcome!2026';
 
 const LOGIN_COOKIE_NAME = 'anet_login';
@@ -111,6 +112,13 @@ fileInput.addEventListener('change', () => {
   currentFile = fileInput.files[0];
   if (!currentFile) return;
   fileInfo.textContent = `已选择：${currentFile.name}（${formatSize(currentFile.size)}）`;
+  if (currentFile.size >= MAX_FILE_SIZE_BYTES) {
+    uploadText.textContent = '文件大小必须小于 5GB';
+    uploadBtn.disabled = true;
+    codeBox.classList.add('hidden');
+    return;
+  }
+  uploadText.textContent = '';
   uploadBtn.disabled = false;
   codeBox.classList.add('hidden');
 });
@@ -141,7 +149,14 @@ uploadBtn.addEventListener('click', async () => {
   });
 
   if (!initRes.ok) {
-    uploadText.textContent = '初始化失败';
+    let text = '初始化失败';
+    try {
+      const err = await initRes.json();
+      text = err.error || text;
+    } catch {
+      // ignore
+    }
+    uploadText.textContent = text;
     uploadBtn.disabled = false;
     return;
   }
