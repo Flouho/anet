@@ -42,8 +42,6 @@ const MIME_TYPES = {
   '.json': 'application/json; charset=utf-8',
 };
 
-
-
 async function ensureDir(targetPath) {
   try {
     await fsp.mkdir(targetPath, { recursive: true });
@@ -183,14 +181,31 @@ async function mergeChunks(uploadId, totalChunks, outputPath) {
   });
 }
 
+function normalizeMaxDownloads(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return 1;
+  return Math.max(1, Math.floor(num));
+}
+
 async function handleApi(req, res, url) {
   try {
     if (req.method === 'POST' && url.pathname === '/api/upload/init') {
       const body = JSON.parse((await readBody(req)).toString('utf-8'));
-      const { fileName, fileSize, mimeType, totalChunks, chunkSize, fingerprint, uploadId } = body;
+      const {
+        fileName,
+        fileSize,
+        mimeType,
+        totalChunks,
+        chunkSize,
+        fingerprint,
+        maxDownloads,
+        uploadId,
+      } = body;
+
       if (!fileName || !fileSize || !totalChunks || !chunkSize) {
         return sendJson(res, 400, { error: '缺少必要参数' });
       }
+
       const db = await readIndex();
       if (uploadId && db.uploads[uploadId]) {
         const record = db.uploads[uploadId];
@@ -198,6 +213,7 @@ async function handleApi(req, res, url) {
           uploadId,
           code: record.code,
           uploadedChunks: record.uploadedChunks || [],
+          maxDownloads: record.maxDownloads || 1,
         });
       }
 
@@ -214,6 +230,8 @@ async function handleApi(req, res, url) {
         mimeType: mimeType || 'application/octet-stream',
         totalChunks,
         chunkSize,
+        maxDownloads: normalizeMaxDownloads(maxDownloads),
+        downloadCount: 0,
         uploadedChunks: [],
         complete: false,
         createdAt: new Date().toISOString(),
@@ -221,7 +239,12 @@ async function handleApi(req, res, url) {
       db.codes[code] = newUploadId;
       await ensureDir(path.join(TMP_DIR, newUploadId));
       await writeIndex(db);
-      return sendJson(res, 200, { uploadId: newUploadId, code, uploadedChunks: [] });
+      return sendJson(res, 200, {
+        uploadId: newUploadId,
+        code,
+        uploadedChunks: [],
+        maxDownloads: db.uploads[newUploadId].maxDownloads,
+      });
     }
 
     if (req.method === 'GET' && url.pathname.startsWith('/api/upload/status/')) {
@@ -281,12 +304,23 @@ async function handleApi(req, res, url) {
       const uploadId = db.codes[code];
       if (!uploadId) return sendJson(res, 404, { error: '提取码不存在' });
       const record = db.uploads[uploadId];
-      if (!record || !record.complete || !record.filePath) return sendJson(res, 404, { error: '文件不存在或已被下载删除' });
+
+      if (!record || !record.complete || !record.filePath) {
+        return sendJson(res, 404, { error: '文件不存在' });
+      }
+
+      const remainingDownloads = Math.max(0, (record.maxDownloads || 1) - (record.downloadCount || 0));
+      if (remainingDownloads <= 0) {
+        return sendJson(res, 404, { error: '文件下载次数已用完' });
+      }
+
       return sendJson(res, 200, {
         code,
         fileName: record.fileName,
         fileSize: record.fileSize,
         mimeType: record.mimeType,
+        remainingDownloads,
+        maxDownloads: record.maxDownloads || 1,
       });
     }
 
@@ -297,7 +331,12 @@ async function handleApi(req, res, url) {
       if (!uploadId) return sendJson(res, 404, { error: '提取码不存在' });
       const record = db.uploads[uploadId];
       if (!record || !record.complete || !record.filePath) {
-        return sendJson(res, 404, { error: '文件不存在或已被下载删除' });
+        return sendJson(res, 404, { error: '文件不存在' });
+      }
+
+      const remainingBefore = Math.max(0, (record.maxDownloads || 1) - (record.downloadCount || 0));
+      if (remainingBefore <= 0) {
+        return sendJson(res, 404, { error: '文件下载次数已用完' });
       }
 
       const filePath = record.filePath;
@@ -305,25 +344,8 @@ async function handleApi(req, res, url) {
       const total = stat.size;
       const range = req.headers.range;
 
-      record.complete = false;
-      record.pendingDelete = true;
+      record.downloadCount = (record.downloadCount || 0) + 1;
       await writeIndex(db);
-
-      const finalizeDelete = async () => {
-        try {
-          await removeFileSafe(filePath);
-          const freshDb = await readIndex();
-          const freshRecord = freshDb.uploads[uploadId];
-          if (freshRecord) {
-            freshRecord.filePath = null;
-            freshRecord.pendingDelete = false;
-            freshRecord.deletedAt = new Date().toISOString();
-            await writeIndex(freshDb);
-          }
-        } catch (_) {
-          // ignore cleanup error
-        }
-      };
 
       res.setHeader('Accept-Ranges', 'bytes');
       res.setHeader('Content-Type', record.mimeType || 'application/octet-stream');
@@ -337,18 +359,12 @@ async function handleApi(req, res, url) {
           'Content-Range': `bytes ${start}-${end}/${total}`,
           'Content-Length': end - start + 1,
         });
-        const rangeStream = fs.createReadStream(filePath, { start, end });
-        rangeStream.on('end', finalizeDelete);
-        rangeStream.on('error', finalizeDelete);
-        rangeStream.pipe(res);
+        fs.createReadStream(filePath, { start, end }).pipe(res);
         return;
       }
 
       res.writeHead(200, { 'Content-Length': total });
-      const fullStream = fs.createReadStream(filePath);
-      fullStream.on('end', finalizeDelete);
-      fullStream.on('error', finalizeDelete);
-      fullStream.pipe(res);
+      fs.createReadStream(filePath).pipe(res);
       return;
     }
 

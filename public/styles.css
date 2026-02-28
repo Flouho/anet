@@ -74,6 +74,18 @@ h1 { margin: 0; font-size: 30px; }
   color: #3b4a6b;
 }
 .upload-box input { display: none; }
+.download-limit-row {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.download-limit-row input {
+  width: 100px;
+  border: 1px solid #cbd8f8;
+  border-radius: 8px;
+  padding: 6px 8px;
+}
 .primary {
   margin-top: 14px;
   border: 0;

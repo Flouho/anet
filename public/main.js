@@ -9,9 +9,13 @@ function setLoginCookie() {
   document.cookie = `${LOGIN_COOKIE_NAME}=${LOGIN_COOKIE_VALUE}; Max-Age=${LOGIN_COOKIE_MAX_AGE}; Path=/; SameSite=Lax`;
 }
 
+function clearLoginCookie() {
+  document.cookie = `${LOGIN_COOKIE_NAME}=; Max-Age=0; Path=/; SameSite=Lax`;
+}
+
 function hasLoginCookie() {
-  const key = `${LOGIN_COOKIE_NAME}=`;
-  return document.cookie.split(';').some((item) => item.trim().startsWith(key));
+  const key = `${LOGIN_COOKIE_NAME}=${LOGIN_COOKIE_VALUE}`;
+  return document.cookie.split(';').some((item) => item.trim() === key);
 }
 
 const welcomePage = document.getElementById('welcomePage');
@@ -22,6 +26,7 @@ const tabs = document.querySelectorAll('.tab');
 const panels = document.querySelectorAll('.panel');
 
 const fileInput = document.getElementById('fileInput');
+const maxDownloadsInput = document.getElementById('maxDownloadsInput');
 const fileInfo = document.getElementById('fileInfo');
 const uploadBtn = document.getElementById('uploadBtn');
 const uploadProgressWrap = document.getElementById('uploadProgressWrap');
@@ -29,6 +34,7 @@ const uploadProgress = document.getElementById('uploadProgress');
 const uploadText = document.getElementById('uploadText');
 const codeBox = document.getElementById('codeBox');
 const codeText = document.getElementById('codeText');
+const codeHint = document.getElementById('codeHint');
 
 const codeInput = document.getElementById('codeInput');
 const fetchMetaBtn = document.getElementById('fetchMetaBtn');
@@ -52,6 +58,12 @@ function showApp() {
 }
 
 loginToggleBtn.addEventListener('click', () => {
+  if (hasLoginCookie()) {
+    clearLoginCookie();
+    showWelcome();
+    return;
+  }
+
   const input = window.prompt('请输入登录口令');
   if (input === LOGIN_SECRET) {
     setLoginCookie();
@@ -106,6 +118,7 @@ uploadBtn.addEventListener('click', async () => {
   uploadBtn.disabled = true;
   uploadProgressWrap.classList.remove('hidden');
 
+  const maxDownloads = Math.max(1, Number(maxDownloadsInput.value) || 1);
   const totalChunks = Math.ceil(currentFile.size / CHUNK_SIZE);
   const fingerprint = fingerprintOf(currentFile);
   const savedUploadId = localStorage.getItem(`upload_${fingerprint}`);
@@ -120,6 +133,7 @@ uploadBtn.addEventListener('click', async () => {
       totalChunks,
       chunkSize: CHUNK_SIZE,
       fingerprint,
+      maxDownloads,
       uploadId: savedUploadId,
     }),
   });
@@ -168,6 +182,7 @@ uploadBtn.addEventListener('click', async () => {
 
   localStorage.removeItem(`upload_${fingerprint}`);
   codeText.textContent = code;
+  codeHint.textContent = `当前文件可下载 ${maxDownloads} 次`;
   codeBox.classList.remove('hidden');
   uploadText.textContent = '上传完成';
 });
@@ -191,7 +206,7 @@ fetchMetaBtn.addEventListener('click', async () => {
   }
 
   currentDownloadMeta = await resp.json();
-  downloadInfo.textContent = `文件：${currentDownloadMeta.fileName}（${formatSize(currentDownloadMeta.fileSize)}）`;
+  downloadInfo.textContent = `文件：${currentDownloadMeta.fileName}（${formatSize(currentDownloadMeta.fileSize)}），剩余可下载次数：${currentDownloadMeta.remainingDownloads}`;
   downloadBtn.classList.remove('hidden');
 });
 
@@ -236,5 +251,8 @@ downloadBtn.addEventListener('click', async () => {
   a.download = currentDownloadMeta.fileName;
   a.click();
   URL.revokeObjectURL(url);
-  downloadText.textContent = '下载完成（文件已从服务器删除）';
+
+  const remaining = Math.max(0, Number(currentDownloadMeta.remainingDownloads || 1) - 1);
+  currentDownloadMeta.remainingDownloads = remaining;
+  downloadText.textContent = remaining > 0 ? `下载完成，剩余可下载次数：${remaining}` : '下载完成，下载次数已用完';
 });
