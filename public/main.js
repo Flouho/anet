@@ -1,6 +1,19 @@
 const CHUNK_SIZE = 5 * 1024 * 1024;
 const LOGIN_SECRET = 'Welcome!2026';
 
+const LOGIN_COOKIE_NAME = 'anet_login';
+const LOGIN_COOKIE_VALUE = 'ok';
+const LOGIN_COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
+
+function setLoginCookie() {
+  document.cookie = `${LOGIN_COOKIE_NAME}=${LOGIN_COOKIE_VALUE}; Max-Age=${LOGIN_COOKIE_MAX_AGE}; Path=/; SameSite=Lax`;
+}
+
+function hasLoginCookie() {
+  const key = `${LOGIN_COOKIE_NAME}=`;
+  return document.cookie.split(';').some((item) => item.trim().startsWith(key));
+}
+
 const welcomePage = document.getElementById('welcomePage');
 const appPage = document.getElementById('appPage');
 const loginToggleBtn = document.getElementById('loginToggleBtn');
@@ -41,6 +54,7 @@ function showApp() {
 loginToggleBtn.addEventListener('click', () => {
   const input = window.prompt('请输入登录口令');
   if (input === LOGIN_SECRET) {
+    setLoginCookie();
     showApp();
     return;
   }
@@ -48,7 +62,11 @@ loginToggleBtn.addEventListener('click', () => {
   showWelcome();
 });
 
-showWelcome();
+if (hasLoginCookie()) {
+  showApp();
+} else {
+  showWelcome();
+}
 
 tabs.forEach((tab) => {
   tab.addEventListener('click', () => {
