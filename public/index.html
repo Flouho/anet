@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>匿名文件传输</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <button id="loginToggleBtn" class="tiny-login-btn">退出</button>
+
+    <section id="welcomePage" class="welcome-page">
+      <div class="welcome-card">
+        <h1>欢迎使用匿名文件传输</h1>
+        <p>上传后获取提取码，在任意设备输入提取码即可下载。</p>
+        <p class="muted">点击左上角按钮输入口令进入传输页面；进入后再次点击可退出。</p>
+      </div>
+    </section>
+
+    <main id="appPage" class="container hidden">
+      <h1>匿名文件传输</h1>
+      <p class="subtitle">无需注册，上传后拿到提取码，任意设备输入提取码即可下载。</p>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="upload">上传</button>
+        <button class="tab" data-tab="download">下载</button>
+      </div>
+
+      <section id="upload" class="panel active">
+        <label class="upload-box" for="fileInput">
+          <input id="fileInput" type="file" />
+          <span>点击选择文件（支持大文件断点续传）</span>
+        </label>
+        <div class="download-limit-row">
+          <label for="maxDownloadsInput">允许下载次数</label>
+          <input id="maxDownloadsInput" type="number" min="1" max="1000" value="1" />
+        </div>
+        <div id="fileInfo" class="muted"></div>
+        <button id="uploadBtn" class="primary" disabled>开始上传</button>
+
+        <div id="uploadProgressWrap" class="hidden">
+          <div class="progress-bar"><div id="uploadProgress"></div></div>
+          <div id="uploadText" class="muted">0%</div>
+        </div>
+
+        <div id="codeBox" class="code-box hidden">
+          上传完成，下载提取码：
+          <span id="codeText"></span>
+          <div id="codeHint" class="muted"></div>
+        </div>
+      </section>
+
+      <section id="download" class="panel">
+        <div class="download-row">
+          <input id="codeInput" maxlength="8" placeholder="输入8位提取码" />
+          <button id="fetchMetaBtn" class="primary">查询文件</button>
+        </div>
+        <div id="downloadInfo" class="muted"></div>
+        <button id="downloadBtn" class="primary hidden">下载文件</button>
+        <div id="downloadProgressWrap" class="hidden">
+          <div class="progress-bar"><div id="downloadProgress"></div></div>
+          <div id="downloadText" class="muted">0%</div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/main.js"></script>
+  </body>
+</html>
