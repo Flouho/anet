@@ -37,6 +37,9 @@ const FILE_DIR = path.join(STORAGE_DIR, 'files');
 const INDEX_FILE = path.join(STORAGE_DIR, 'index.json');
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 * 1024;
 const MAX_DISK_USAGE_AFTER_UPLOAD = 0.8;
+const MAX_JSON_BODY_BYTES = 1024 * 1024;
+const MAX_CHUNK_BODY_BYTES = 6 * 1024 * 1024;
+const REQUEST_TIMEOUT_MS = 5 * 60 * 1000;
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -122,21 +125,78 @@ function randomCode(len = 8) {
   return Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
+function setCommonHeaders(res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+}
+
+function normalizeFileName(name) {
+  return String(name || '')
+    .replace(/[\r\n]/g, '_')
+    .replace(/[\x00-\x1F\x7F]/g, '_')
+    .slice(0, 255);
+}
+
+function isValidUploadId(value) {
+  return /^[a-f0-9]{20}$/i.test(String(value || ''));
+}
+
+function isValidCode(value) {
+  return /^[A-Z0-9]{8}$/.test(String(value || ''));
+}
+
 function sendJson(res, status, payload) {
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  setCommonHeaders(res);
+  res.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+  });
   res.end(JSON.stringify(payload));
 }
 
-function readBody(req) {
+function readBody(req, maxBytes) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on('data', (chunk) => chunks.push(chunk));
+    let total = 0;
+    req.on('data', (chunk) => {
+      total += chunk.length;
+      if (typeof maxBytes === 'number' && total > maxBytes) {
+        const err = new Error('请求体过大');
+        err.statusCode = 413;
+        req.destroy(err);
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
+    req.on('error', (err) => {
+      if (err && err.statusCode) {
+        reject(err);
+        return;
+      }
+      const wrapped = new Error('读取请求体失败');
+      wrapped.statusCode = 400;
+      reject(wrapped);
+    });
+  });
+}
+
+function parseJsonBody(req, maxBytes) {
+  return readBody(req, maxBytes).then((buf) => {
+    try {
+      return JSON.parse(buf.toString('utf-8'));
+    } catch {
+      const err = new Error('JSON 格式错误');
+      err.statusCode = 400;
+      throw err;
+    }
   });
 }
 
 function notFound(res) {
+  setCommonHeaders(res);
   res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
   res.end('Not Found');
 }
@@ -152,7 +212,11 @@ async function serveStatic(reqPath, res) {
     const stat = await fsp.stat(filePath);
     if (!stat.isFile()) return notFound(res);
     const ext = path.extname(filePath);
-    res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
+    setCommonHeaders(res);
+    res.writeHead(200, {
+      'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
+      'Cache-Control': ext === '.html' ? 'no-store' : 'public, max-age=300',
+    });
     fs.createReadStream(filePath).pipe(res);
   } catch {
     notFound(res);
@@ -228,7 +292,7 @@ function checkUploadCapacity(fileSize, diskStats) {
 async function handleApi(req, res, url) {
   try {
     if (req.method === 'POST' && url.pathname === '/api/upload/init') {
-      const body = JSON.parse((await readBody(req)).toString('utf-8'));
+      const body = await parseJsonBody(req, MAX_JSON_BODY_BYTES);
       const {
         fileName,
         fileSize,
@@ -242,6 +306,11 @@ async function handleApi(req, res, url) {
 
       if (!fileName || !fileSize || !totalChunks || !chunkSize) {
         return sendJson(res, 400, { error: '缺少必要参数' });
+      }
+
+      const normalizedFileName = normalizeFileName(fileName);
+      if (!normalizedFileName) {
+        return sendJson(res, 400, { error: '文件名无效' });
       }
 
       const normalizedFileSize = Number(fileSize);
@@ -270,6 +339,9 @@ async function handleApi(req, res, url) {
       }
 
       const db = await readIndex();
+      if (uploadId && (!isValidUploadId(uploadId) || !db.uploads[uploadId])) {
+        return sendJson(res, 400, { error: 'uploadId 无效' });
+      }
       if (uploadId && db.uploads[uploadId]) {
         const record = db.uploads[uploadId];
         return sendJson(res, 200, {
@@ -288,7 +360,7 @@ async function handleApi(req, res, url) {
         uploadId: newUploadId,
         code,
         fingerprint,
-        fileName,
+        fileName: normalizedFileName,
         fileSize: normalizedFileSize,
         mimeType: mimeType || 'application/octet-stream',
         totalChunks: normalizedTotalChunks,
@@ -326,13 +398,17 @@ async function handleApi(req, res, url) {
 
     if (req.method === 'POST' && /\/api\/upload\/[^/]+\/chunk/.test(url.pathname)) {
       const uploadId = url.pathname.split('/')[3];
+      if (!isValidUploadId(uploadId)) return sendJson(res, 400, { error: 'uploadId 无效' });
       const idx = Number(url.searchParams.get('index'));
-      if (Number.isNaN(idx)) return sendJson(res, 400, { error: 'chunk index 无效' });
+      if (!Number.isInteger(idx) || idx < 0) return sendJson(res, 400, { error: 'chunk index 无效' });
       const db = await readIndex();
       const record = db.uploads[uploadId];
       if (!record) return sendJson(res, 404, { error: '上传任务不存在' });
 
-      const body = await readBody(req);
+      if (idx >= record.totalChunks) return sendJson(res, 400, { error: 'chunk index 超出范围' });
+
+      const body = await readBody(req, Math.max(MAX_CHUNK_BODY_BYTES, Number(record.chunkSize) + 1024));
+      if (!body.length) return sendJson(res, 400, { error: '分片内容为空' });
       await fsp.writeFile(path.join(TMP_DIR, uploadId, `${idx}.part`), body);
       if (!record.uploadedChunks.includes(idx)) {
         record.uploadedChunks.push(idx);
@@ -344,6 +420,7 @@ async function handleApi(req, res, url) {
 
     if (req.method === 'POST' && /\/api\/upload\/[^/]+\/complete/.test(url.pathname)) {
       const uploadId = url.pathname.split('/')[3];
+      if (!isValidUploadId(uploadId)) return sendJson(res, 400, { error: 'uploadId 无效' });
       const db = await readIndex();
       const record = db.uploads[uploadId];
       if (!record) return sendJson(res, 404, { error: '上传任务不存在' });
@@ -363,6 +440,7 @@ async function handleApi(req, res, url) {
 
     if (req.method === 'GET' && /\/api\/download\/[^/]+\/meta/.test(url.pathname)) {
       const code = url.pathname.split('/')[3].toUpperCase();
+      if (!isValidCode(code)) return sendJson(res, 400, { error: '提取码格式无效' });
       const db = await readIndex();
       const uploadId = db.codes[code];
       if (!uploadId) return sendJson(res, 404, { error: '提取码不存在' });
@@ -389,6 +467,7 @@ async function handleApi(req, res, url) {
 
     if (req.method === 'GET' && /\/api\/download\/[^/]+$/.test(url.pathname)) {
       const code = url.pathname.split('/')[3].toUpperCase();
+      if (!isValidCode(code)) return sendJson(res, 400, { error: '提取码格式无效' });
       const db = await readIndex();
       const uploadId = db.codes[code];
       if (!uploadId) return sendJson(res, 404, { error: '提取码不存在' });
@@ -410,14 +489,31 @@ async function handleApi(req, res, url) {
       record.downloadCount = (record.downloadCount || 0) + 1;
       await writeIndex(db);
 
+      const safeDownloadName = normalizeFileName(record.fileName) || 'download.bin';
       res.setHeader('Accept-Ranges', 'bytes');
       res.setHeader('Content-Type', record.mimeType || 'application/octet-stream');
-      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(record.fileName)}`);
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(safeDownloadName)}`);
 
       if (range) {
-        const [startStr, endStr] = range.replace('bytes=', '').split('-');
-        const start = Number(startStr);
-        const end = endStr ? Number(endStr) : total - 1;
+        const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+        if (!match) return sendJson(res, 416, { error: 'Range 头无效' });
+        let start = match[1] ? Number(match[1]) : NaN;
+        let end = match[2] ? Number(match[2]) : NaN;
+        if (Number.isNaN(start) && Number.isNaN(end)) return sendJson(res, 416, { error: 'Range 头无效' });
+
+        if (Number.isNaN(start)) {
+          const suffix = end;
+          if (!Number.isInteger(suffix) || suffix <= 0) return sendJson(res, 416, { error: 'Range 头无效' });
+          start = Math.max(0, total - suffix);
+          end = total - 1;
+        } else {
+          if (!Number.isInteger(start) || start < 0) return sendJson(res, 416, { error: 'Range 头无效' });
+          if (Number.isNaN(end)) end = total - 1;
+          if (!Number.isInteger(end) || end < start) return sendJson(res, 416, { error: 'Range 头无效' });
+        }
+
+        if (start >= total) return sendJson(res, 416, { error: 'Range 超出文件范围' });
+        end = Math.min(end, total - 1);
         res.writeHead(206, {
           'Content-Range': `bytes ${start}-${end}/${total}`,
           'Content-Length': end - start + 1,
@@ -433,19 +529,42 @@ async function handleApi(req, res, url) {
 
     notFound(res);
   } catch (err) {
-    sendJson(res, 500, { error: err.message });
+    const statusCode = err && err.statusCode ? err.statusCode : 500;
+    if (!res.headersSent) {
+      sendJson(res, statusCode, { error: statusCode >= 500 ? '服务器内部错误' : err.message });
+      return;
+    }
+    res.end();
   }
 }
 
 (async () => {
   await ensureStorage();
   const server = http.createServer((req, res) => {
-    const url = new URL(req.url, `http://${req.headers.host}`);
-    if (url.pathname.startsWith('/api/')) {
-      handleApi(req, res, url);
+    req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+      if (!res.headersSent) sendJson(res, 408, { error: '请求超时' });
+    });
+
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    } catch {
+      sendJson(res, 400, { error: '请求地址无效' });
       return;
     }
-    serveStatic(url.pathname, res);
+
+    if (parsedUrl.pathname.startsWith('/api/')) {
+      handleApi(req, res, parsedUrl);
+      return;
+    }
+    serveStatic(parsedUrl.pathname, res);
+  });
+
+  server.headersTimeout = 65 * 1000;
+  server.requestTimeout = REQUEST_TIMEOUT_MS;
+  server.keepAliveTimeout = 5 * 1000;
+  server.on('clientError', (_err, socket) => {
+    socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
   });
 
   server.listen(PORT, () => {

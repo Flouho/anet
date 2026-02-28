@@ -6,6 +6,18 @@ const LOGIN_COOKIE_NAME = 'anet_login';
 const LOGIN_COOKIE_VALUE = 'ok';
 const LOGIN_COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
 
+const FETCH_TIMEOUT_MS = 30000;
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function setLoginCookie() {
   document.cookie = `${LOGIN_COOKIE_NAME}=${LOGIN_COOKIE_VALUE}; Max-Age=${LOGIN_COOKIE_MAX_AGE}; Path=/; SameSite=Lax`;
 }
@@ -133,7 +145,9 @@ uploadBtn.addEventListener('click', async () => {
   const fingerprint = fingerprintOf(currentFile);
   const savedUploadId = localStorage.getItem(`upload_${fingerprint}`);
 
-  const initRes = await fetch('/api/upload/init', {
+  let initRes;
+  try {
+    initRes = await fetchWithTimeout('/api/upload/init', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -146,7 +160,12 @@ uploadBtn.addEventListener('click', async () => {
       maxDownloads,
       uploadId: savedUploadId,
     }),
-  });
+    });
+  } catch (err) {
+    uploadText.textContent = err.name === 'AbortError' ? '初始化超时，请重试' : '网络异常，初始化失败';
+    uploadBtn.disabled = false;
+    return;
+  }
 
   if (!initRes.ok) {
     let text = '初始化失败';
@@ -172,11 +191,18 @@ uploadBtn.addEventListener('click', async () => {
       const end = Math.min(currentFile.size, start + CHUNK_SIZE);
       const chunk = currentFile.slice(start, end);
 
-      const resp = await fetch(`/api/upload/${uploadId}/chunk?index=${i}`, {
+      let resp;
+      try {
+        resp = await fetchWithTimeout(`/api/upload/${uploadId}/chunk?index=${i}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/octet-stream' },
         body: chunk,
-      });
+        }, 120000);
+      } catch (err) {
+        uploadText.textContent = err.name === 'AbortError' ? `分片 ${i + 1} 上传超时，请重试` : `分片 ${i + 1} 上传网络异常`;
+        uploadBtn.disabled = false;
+        return;
+      }
       if (!resp.ok) {
         uploadText.textContent = `分片 ${i + 1} 上传失败，请重试`;
         uploadBtn.disabled = false;
@@ -190,7 +216,14 @@ uploadBtn.addEventListener('click', async () => {
     uploadText.textContent = `上传进度：${percent}% (${uploadedSet.size}/${totalChunks})`;
   }
 
-  const completeRes = await fetch(`/api/upload/${uploadId}/complete`, { method: 'POST' });
+  let completeRes;
+  try {
+    completeRes = await fetchWithTimeout(`/api/upload/${uploadId}/complete`, { method: 'POST' });
+  } catch (err) {
+    uploadText.textContent = err.name === 'AbortError' ? '合并请求超时，请重试' : '网络异常，合并失败';
+    uploadBtn.disabled = false;
+    return;
+  }
   if (!completeRes.ok) {
     uploadText.textContent = '合并文件失败，请重试';
     uploadBtn.disabled = false;
@@ -208,7 +241,14 @@ fetchMetaBtn.addEventListener('click', async () => {
   const code = codeInput.value.trim().toUpperCase();
   if (!code) return;
 
-  const resp = await fetch(`/api/download/${code}/meta`);
+  let resp;
+  try {
+    resp = await fetchWithTimeout(`/api/download/${code}/meta`);
+  } catch (err) {
+    downloadInfo.textContent = err.name === 'AbortError' ? '查询超时，请重试' : '网络异常，查询失败';
+    downloadBtn.classList.add('hidden');
+    return;
+  }
   if (!resp.ok) {
     let text = '提取码无效或文件不存在';
     try {
@@ -233,7 +273,13 @@ downloadBtn.addEventListener('click', async () => {
   downloadProgressWrap.classList.remove('hidden');
   downloadProgress.style.width = '0%';
 
-  const resp = await fetch(`/api/download/${code}`);
+  let resp;
+  try {
+    resp = await fetchWithTimeout(`/api/download/${code}`, {}, 120000);
+  } catch (err) {
+    downloadText.textContent = err.name === 'AbortError' ? '下载请求超时，请重试' : '网络异常，下载失败';
+    return;
+  }
   if (!resp.ok || !resp.body) {
     let text = '下载失败';
     try {
@@ -267,6 +313,7 @@ downloadBtn.addEventListener('click', async () => {
   a.href = url;
   a.download = currentDownloadMeta.fileName;
   a.click();
+  a.remove();
   URL.revokeObjectURL(url);
 
   const remaining = Math.max(0, Number(currentDownloadMeta.remainingDownloads || 1) - 1);
