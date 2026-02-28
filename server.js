@@ -1,6 +1,28 @@
 const http = require('http');
 const fs = require('fs');
-const fsp = require('fs/promises');
+const { promisify } = require('util');
+let fsp = fs.promises;
+if (!fsp) {
+  fsp = {
+    access: promisify(fs.access),
+    readFile: promisify(fs.readFile),
+    writeFile: promisify(fs.writeFile),
+    stat: promisify(fs.stat),
+    unlink: promisify(fs.unlink),
+    mkdir: (target, options) => new Promise((resolve, reject) => {
+      fs.mkdir(target, options || {}, (err) => {
+        if (err && err.code !== 'EEXIST') return reject(err);
+        resolve();
+      });
+    }),
+    rmdir: (target, options) => new Promise((resolve, reject) => {
+      fs.rmdir(target, options || {}, (err) => {
+        if (err && err.code !== 'ENOENT') return reject(err);
+        resolve();
+      });
+    }),
+  };
+}
 const path = require('path');
 const crypto = require('crypto');
 const { URL } = require('url');
@@ -20,9 +42,59 @@ const MIME_TYPES = {
   '.json': 'application/json; charset=utf-8',
 };
 
+
+
+async function ensureDir(targetPath) {
+  try {
+    await fsp.mkdir(targetPath, { recursive: true });
+  } catch (err) {
+    if (err && (err.code === 'ENOTSUP' || err.code === 'ERR_INVALID_ARG_VALUE' || err.code === 'ERR_INVALID_OPT_VALUE')) {
+      const parts = targetPath.split(path.sep);
+      let current = parts[0] === '' ? path.sep : parts[0];
+      for (let i = 1; i <= parts.length; i += 1) {
+        const segment = parts[i];
+        if (!segment) continue;
+        current = current === path.sep ? path.join(current, segment) : path.join(current, segment);
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          await fsp.mkdir(current);
+        } catch (innerErr) {
+          if (!innerErr || innerErr.code !== 'EEXIST') throw innerErr;
+        }
+      }
+      return;
+    }
+    if (!err || err.code !== 'EEXIST') throw err;
+  }
+}
+
+async function removeFileSafe(targetPath) {
+  try {
+    if (typeof fsp.rm === 'function') {
+      await fsp.rm(targetPath, { force: true });
+    } else {
+      await fsp.unlink(targetPath);
+    }
+  } catch (err) {
+    if (err && err.code !== 'ENOENT') throw err;
+  }
+}
+
+async function removeDirSafe(targetPath) {
+  try {
+    if (typeof fsp.rm === 'function') {
+      await fsp.rm(targetPath, { recursive: true, force: true });
+    } else {
+      await fsp.rmdir(targetPath, { recursive: true });
+    }
+  } catch (err) {
+    if (err && err.code !== 'ENOENT' && err.code !== 'ENOTDIR') throw err;
+  }
+}
+
 async function ensureStorage() {
-  await fsp.mkdir(TMP_DIR, { recursive: true });
-  await fsp.mkdir(FILE_DIR, { recursive: true });
+  await ensureDir(TMP_DIR);
+  await ensureDir(FILE_DIR);
   try {
     await fsp.access(INDEX_FILE);
   } catch {
@@ -101,7 +173,7 @@ async function mergeChunks(uploadId, totalChunks, outputPath) {
       rs.on('error', reject);
       rs.on('end', async () => {
         idx += 1;
-        await fsp.rm(part, { force: true });
+        await removeFileSafe(part);
         pipeNext();
       });
       rs.pipe(ws, { end: false });
@@ -147,7 +219,7 @@ async function handleApi(req, res, url) {
         createdAt: new Date().toISOString(),
       };
       db.codes[code] = newUploadId;
-      await fsp.mkdir(path.join(TMP_DIR, newUploadId), { recursive: true });
+      await ensureDir(path.join(TMP_DIR, newUploadId));
       await writeIndex(db);
       return sendJson(res, 200, { uploadId: newUploadId, code, uploadedChunks: [] });
     }
@@ -198,7 +270,7 @@ async function handleApi(req, res, url) {
       record.complete = true;
       record.filePath = filePath;
       record.completedAt = new Date().toISOString();
-      await fsp.rm(path.join(TMP_DIR, uploadId), { recursive: true, force: true });
+      await removeDirSafe(path.join(TMP_DIR, uploadId));
       await writeIndex(db);
       return sendJson(res, 200, { ok: true, code: record.code });
     }
