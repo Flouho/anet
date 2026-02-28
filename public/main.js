@@ -50,11 +50,13 @@ let currentDownloadMeta = null;
 function showWelcome() {
   welcomePage.classList.remove('hidden');
   appPage.classList.add('hidden');
+  loginToggleBtn.textContent = '登录';
 }
 
 function showApp() {
   welcomePage.classList.add('hidden');
   appPage.classList.remove('hidden');
+  loginToggleBtn.textContent = '退出';
 }
 
 loginToggleBtn.addEventListener('click', () => {
