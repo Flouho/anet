@@ -1,4 +1,9 @@
 const CHUNK_SIZE = 5 * 1024 * 1024;
+const LOGIN_SECRET = 'Welcome!2026';
+
+const welcomePage = document.getElementById('welcomePage');
+const appPage = document.getElementById('appPage');
+const loginToggleBtn = document.getElementById('loginToggleBtn');
 
 const tabs = document.querySelectorAll('.tab');
 const panels = document.querySelectorAll('.panel');
@@ -22,6 +27,28 @@ const downloadText = document.getElementById('downloadText');
 
 let currentFile = null;
 let currentDownloadMeta = null;
+
+function showWelcome() {
+  welcomePage.classList.remove('hidden');
+  appPage.classList.add('hidden');
+}
+
+function showApp() {
+  welcomePage.classList.add('hidden');
+  appPage.classList.remove('hidden');
+}
+
+loginToggleBtn.addEventListener('click', () => {
+  const input = window.prompt('请输入登录口令');
+  if (input === LOGIN_SECRET) {
+    showApp();
+    return;
+  }
+  window.alert('口令错误，返回欢迎页面');
+  showWelcome();
+});
+
+showWelcome();
 
 tabs.forEach((tab) => {
   tab.addEventListener('click', () => {
@@ -133,7 +160,14 @@ fetchMetaBtn.addEventListener('click', async () => {
 
   const resp = await fetch(`/api/download/${code}/meta`);
   if (!resp.ok) {
-    downloadInfo.textContent = '提取码无效或文件尚未准备好';
+    let text = '提取码无效或文件不存在';
+    try {
+      const err = await resp.json();
+      text = err.error || text;
+    } catch {
+      // ignore
+    }
+    downloadInfo.textContent = text;
     downloadBtn.classList.add('hidden');
     return;
   }
@@ -151,7 +185,14 @@ downloadBtn.addEventListener('click', async () => {
 
   const resp = await fetch(`/api/download/${code}`);
   if (!resp.ok || !resp.body) {
-    downloadText.textContent = '下载失败';
+    let text = '下载失败';
+    try {
+      const err = await resp.json();
+      text = err.error || text;
+    } catch {
+      // ignore
+    }
+    downloadText.textContent = text;
     return;
   }
 
@@ -177,5 +218,5 @@ downloadBtn.addEventListener('click', async () => {
   a.download = currentDownloadMeta.fileName;
   a.click();
   URL.revokeObjectURL(url);
-  downloadText.textContent = '下载完成';
+  downloadText.textContent = '下载完成（文件已从服务器删除）';
 });

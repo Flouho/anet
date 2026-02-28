@@ -281,7 +281,7 @@ async function handleApi(req, res, url) {
       const uploadId = db.codes[code];
       if (!uploadId) return sendJson(res, 404, { error: '提取码不存在' });
       const record = db.uploads[uploadId];
-      if (!record || !record.complete) return sendJson(res, 404, { error: '文件尚未准备完成' });
+      if (!record || !record.complete || !record.filePath) return sendJson(res, 404, { error: '文件不存在或已被下载删除' });
       return sendJson(res, 200, {
         code,
         fileName: record.fileName,
@@ -294,13 +294,37 @@ async function handleApi(req, res, url) {
       const code = url.pathname.split('/')[3].toUpperCase();
       const db = await readIndex();
       const uploadId = db.codes[code];
-      if (!uploadId) return notFound(res);
+      if (!uploadId) return sendJson(res, 404, { error: '提取码不存在' });
       const record = db.uploads[uploadId];
-      if (!record || !record.complete) return notFound(res);
+      if (!record || !record.complete || !record.filePath) {
+        return sendJson(res, 404, { error: '文件不存在或已被下载删除' });
+      }
 
-      const stat = await fsp.stat(record.filePath);
+      const filePath = record.filePath;
+      const stat = await fsp.stat(filePath);
       const total = stat.size;
       const range = req.headers.range;
+
+      record.complete = false;
+      record.pendingDelete = true;
+      await writeIndex(db);
+
+      const finalizeDelete = async () => {
+        try {
+          await removeFileSafe(filePath);
+          const freshDb = await readIndex();
+          const freshRecord = freshDb.uploads[uploadId];
+          if (freshRecord) {
+            freshRecord.filePath = null;
+            freshRecord.pendingDelete = false;
+            freshRecord.deletedAt = new Date().toISOString();
+            await writeIndex(freshDb);
+          }
+        } catch (_) {
+          // ignore cleanup error
+        }
+      };
+
       res.setHeader('Accept-Ranges', 'bytes');
       res.setHeader('Content-Type', record.mimeType || 'application/octet-stream');
       res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(record.fileName)}`);
@@ -313,12 +337,18 @@ async function handleApi(req, res, url) {
           'Content-Range': `bytes ${start}-${end}/${total}`,
           'Content-Length': end - start + 1,
         });
-        fs.createReadStream(record.filePath, { start, end }).pipe(res);
+        const rangeStream = fs.createReadStream(filePath, { start, end });
+        rangeStream.on('end', finalizeDelete);
+        rangeStream.on('error', finalizeDelete);
+        rangeStream.pipe(res);
         return;
       }
 
       res.writeHead(200, { 'Content-Length': total });
-      fs.createReadStream(record.filePath).pipe(res);
+      const fullStream = fs.createReadStream(filePath);
+      fullStream.on('end', finalizeDelete);
+      fullStream.on('error', finalizeDelete);
+      fullStream.pipe(res);
       return;
     }
 
