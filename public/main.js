@@ -1,11 +1,5 @@
 const CHUNK_SIZE = 5 * 1024 * 1024;
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 * 1024;
-const LOGIN_SECRET = 'Welcome!2026';
-
-const LOGIN_COOKIE_NAME = 'anet_login';
-const LOGIN_COOKIE_VALUE = 'ok';
-const LOGIN_COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
-
 const FETCH_TIMEOUT_MS = 30000;
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
@@ -18,22 +12,6 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS)
   }
 }
 
-function setLoginCookie() {
-  document.cookie = `${LOGIN_COOKIE_NAME}=${LOGIN_COOKIE_VALUE}; Max-Age=${LOGIN_COOKIE_MAX_AGE}; Path=/; SameSite=Lax`;
-}
-
-function clearLoginCookie() {
-  document.cookie = `${LOGIN_COOKIE_NAME}=; Max-Age=0; Path=/; SameSite=Lax`;
-}
-
-function hasLoginCookie() {
-  const key = `${LOGIN_COOKIE_NAME}=${LOGIN_COOKIE_VALUE}`;
-  return document.cookie.split(';').some((item) => item.trim() === key);
-}
-
-const welcomePage = document.getElementById('welcomePage');
-const appPage = document.getElementById('appPage');
-const loginToggleBtn = document.getElementById('loginToggleBtn');
 
 const tabs = document.querySelectorAll('.tab');
 const panels = document.querySelectorAll('.panel');
@@ -59,41 +37,6 @@ const downloadText = document.getElementById('downloadText');
 
 let currentFile = null;
 let currentDownloadMeta = null;
-
-function showWelcome() {
-  welcomePage.classList.remove('hidden');
-  appPage.classList.add('hidden');
-  loginToggleBtn.textContent = '登录';
-}
-
-function showApp() {
-  welcomePage.classList.add('hidden');
-  appPage.classList.remove('hidden');
-  loginToggleBtn.textContent = '退出';
-}
-
-loginToggleBtn.addEventListener('click', () => {
-  if (hasLoginCookie()) {
-    clearLoginCookie();
-    showWelcome();
-    return;
-  }
-
-  const input = window.prompt('请输入登录口令');
-  if (input === LOGIN_SECRET) {
-    setLoginCookie();
-    showApp();
-    return;
-  }
-  window.alert('口令错误，返回欢迎页面');
-  showWelcome();
-});
-
-if (hasLoginCookie()) {
-  showApp();
-} else {
-  showWelcome();
-}
 
 tabs.forEach((tab) => {
   tab.addEventListener('click', () => {
