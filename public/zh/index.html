@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>匿名文件传输工具 | 免登录分享大文件，提取码下载 - Flouho</title>
+    <meta
+      name="description"
+      content="Flouho 提供免注册匿名文件传输服务，支持 2GB 以内文件分片上传、断点续传、提取码下载和下载次数控制，适合临时分享、跨设备传文件和匿名投递。"
+    />
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+    <meta name="theme-color" content="#0f172a" />
+    <link rel="canonical" href="https://www.flouho.com/zh/" />
+    <link rel="alternate" hreflang="en" href="https://www.flouho.com/" />
+    <link rel="alternate" hreflang="zh-CN" href="https://www.flouho.com/zh/" />
+    <link rel="alternate" hreflang="x-default" href="https://www.flouho.com/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Flouho" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:title" content="匿名文件传输工具 | 免登录分享大文件，提取码下载" />
+    <meta
+      property="og:description"
+      content="免注册上传文件，生成 8 位提取码，在任意设备下载。支持 2GB 以内文件、断点续传和下载次数控制。"
+    />
+    <meta property="og:url" content="https://www.flouho.com/zh/" />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="匿名文件传输工具 | 免登录分享大文件，提取码下载" />
+    <meta
+      name="twitter:description"
+      content="适合临时分享、跨设备传文件和匿名投递的大文件传输工具。"
+    />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "name": "Flouho",
+            "url": "https://www.flouho.com/zh/",
+            "inLanguage": "zh-CN",
+            "description": "免注册匿名文件传输服务，支持 2GB 以内文件上传、提取码下载和下载次数控制。"
+          },
+          {
+            "@type": "WebApplication",
+            "name": "Flouho 匿名文件传输",
+            "url": "https://www.flouho.com/zh/",
+            "applicationCategory": "UtilitiesApplication",
+            "operatingSystem": "Web",
+            "inLanguage": "zh-CN",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "description": "支持 2GB 以内文件分片上传、断点续传、提取码下载和下载次数控制的匿名文件传输工具。"
+          }
+        ]
+      }
+    </script>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div class="site-topbar">
+          <a class="brand-link" href="/">Flouho</a>
+          <nav class="locale-switch" aria-label="语言切换">
+            <a class="locale-link active" href="/zh/" lang="zh-CN">中文</a>
+            <a class="locale-link" href="/" lang="en">EN</a>
+          </nav>
+        </div>
+        <div class="hero-copy">
+          <div class="eyebrow">Flouho</div>
+          <h1>匿名文件传输工具</h1>
+          <p class="subtitle">
+            免注册上传文件，生成 8 位提取码，在任意设备下载。支持 2GB 以内文件、断点续传和短保留期清理，更适合临时分享、跨设备传文件和匿名投递。
+          </p>
+          <div class="hero-actions">
+            <a class="primary-link" href="#appPage">开始传文件</a>
+            <a class="secondary-link" href="#faq">查看常见问题</a>
+          </div>
+          <ul class="feature-strip" aria-label="核心功能">
+            <li>免登录</li>
+            <li>单文件 2GB</li>
+            <li>断点续传</li>
+            <li>提取码下载</li>
+            <li>下载次数控制</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="appPage" class="container tool-shell">
+        <div class="section-head">
+          <h2>立即上传或下载文件</h2>
+          <p>上传后会生成 8 位提取码。接收方无需登录，输入提取码即可下载文件。</p>
+          <p class="policy-note">文件上传完成后，如果 4 小时内从未被下载，系统会自动删除该文件。已被下载过的文件也会在较短保留期后自动清理，以节省服务器存储空间。</p>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="文件传输操作">
+          <button id="upload-tab" class="tab active" data-tab="upload" role="tab" aria-selected="true" aria-controls="upload">上传文件</button>
+          <button id="download-tab" class="tab" data-tab="download" role="tab" aria-selected="false" aria-controls="download">提取下载</button>
+        </div>
+
+        <section id="upload" class="panel active" role="tabpanel" aria-labelledby="upload-tab">
+          <label class="upload-box" for="fileInput">
+            <input id="fileInput" type="file" />
+            <span>点击选择文件，支持大文件分片上传和断点续传</span>
+          </label>
+          <div class="download-limit-row">
+            <label for="maxDownloadsInput">允许下载次数（1-10）</label>
+            <input id="maxDownloadsInput" type="number" min="1" max="10" value="3" />
+          </div>
+          <div id="fileInfo" class="muted"></div>
+          <button id="uploadBtn" class="primary" disabled>开始上传</button>
+
+          <div id="uploadProgressWrap" class="hidden">
+            <div class="progress-bar"><div id="uploadProgress"></div></div>
+            <div id="uploadText" class="muted">0%</div>
+          </div>
+
+          <div id="codeBox" class="code-box hidden">
+            上传完成，提取码：
+            <span id="codeText"></span>
+            <div id="codeHint" class="muted"></div>
+          </div>
+        </section>
+
+        <section id="download" class="panel" role="tabpanel" aria-labelledby="download-tab">
+          <div class="download-row">
+            <input id="codeInput" maxlength="8" placeholder="输入 8 位提取码" />
+            <button id="fetchMetaBtn" class="primary">查询文件</button>
+          </div>
+          <div id="downloadInfo" class="muted"></div>
+          <button id="downloadBtn" class="primary hidden">下载文件</button>
+          <div id="downloadProgressWrap" class="hidden">
+            <div class="progress-bar"><div id="downloadProgress"></div></div>
+            <div id="downloadText" class="muted">0%</div>
+          </div>
+        </section>
+      </section>
+
+      <section class="content-grid">
+        <article class="content-card">
+          <h2>为什么这个匿名文件传输网站更适合临时分享</h2>
+          <p>
+            很多文件分享平台要求注册、安装客户端或添加联系人。Flouho 把流程压缩成两步：上传文件，发送提取码。接收方只需要打开网页输入提取码，就能在手机、平板或电脑上下载文件。
+          </p>
+          <p>
+            对于临时协作、跨设备传输和不想暴露账号信息的分享场景，这种免登录传文件方式更直接，也更容易让首次访问者理解和使用。
+          </p>
+        </article>
+
+        <article class="content-card">
+          <h2>适合哪些场景</h2>
+          <ul class="bullet-list">
+            <li>给客户、同事或朋友临时发送压缩包、文档和图片素材。</li>
+            <li>在手机和电脑之间快速传文件，不依赖聊天软件压缩图片。</li>
+            <li>匿名投递作品集、资料包或演示文件，不必创建账户。</li>
+            <li>给单次接收者发送文件，并限制最大下载次数。</li>
+          </ul>
+        </article>
+
+        <article class="content-card">
+          <h2>核心能力</h2>
+          <ul class="bullet-list">
+            <li>支持单文件最高 2GB，更适合轻量、临时且对存储更友好的文件传输。</li>
+            <li>上传采用分片机制，网络中断后可继续上传。</li>
+            <li>下载前可先查询文件信息，减少误下载。</li>
+            <li>上传者可以设置下载次数，超限后链接失效。</li>
+          </ul>
+        </article>
+
+        <article class="content-card">
+          <h2>如何使用 Flouho 传文件</h2>
+          <ol class="ordered-list">
+            <li>选择要上传的文件，并设置允许下载次数。</li>
+            <li>上传完成后复制 8 位提取码，发送给接收方。</li>
+            <li>接收方打开网站，输入提取码后即可下载文件。</li>
+          </ol>
+        </article>
+      </section>
+
+      <section class="intent-shell">
+        <div class="section-head">
+          <h2>热门搜索场景</h2>
+          <p>这些落地页专门承接高意图搜索词，不再只依赖首页去覆盖所有相关流量。</p>
+        </div>
+        <div class="intent-grid">
+          <a class="intent-card" href="/zh/solutions/large-file-transfer/">
+            <div class="intent-kicker">大文件传输</div>
+            <h3>免登录发送 2GB 以内文件</h3>
+            <p>面向“大文件怎么传”“在线传大文件”“免费大文件传输”等搜索需求，突出断点续传和低门槛分享。</p>
+          </a>
+          <a class="intent-card" href="/zh/solutions/anonymous-file-sharing/">
+            <div class="intent-kicker">匿名文件分享</div>
+            <h3>不注册也能私密传文件</h3>
+            <p>面向“匿名传文件”“不登录分享文件”“私密文件分享”等搜索意图，强调免注册和低暴露度。</p>
+          </a>
+          <a class="intent-card" href="/zh/solutions/send-files-with-code/">
+            <div class="intent-kicker">提取码分享</div>
+            <h3>用提取码收发文件</h3>
+            <p>适合覆盖“提取码下载”“传文件提取码”“带验证码分享文件”等更明确的工具型搜索流量。</p>
+          </a>
+        </div>
+      </section>
+
+      <section id="faq" class="faq-shell">
+        <div class="section-head">
+          <h2>常见问题</h2>
+          <p>这些问答是搜索用户最常见的意图词，我已经直接放进页面正文，便于搜索引擎理解主题。</p>
+        </div>
+        <div class="faq-list">
+          <article class="faq-item">
+            <h3>匿名文件传输是什么意思？</h3>
+            <p>这里的匿名，指上传和下载流程不要求注册账号。你可以直接上传文件并生成提取码，再把提取码发送给接收方。</p>
+          </article>
+          <article class="faq-item">
+            <h3>这个网站支持多大的文件？</h3>
+            <p>当前单文件支持最高 2GB。前端会采用分片上传，并在中断后继续未完成的分片。</p>
+          </article>
+          <article class="faq-item">
+            <h3>提取码下载适合什么场景？</h3>
+            <p>适合临时文件分享、跨设备传文件、向陌生接收方发送资料，以及只希望对方下载有限次数的场景。</p>
+          </article>
+          <article class="faq-item">
+            <h3>如果文件比较敏感怎么办？</h3>
+            <p>如果文件包含高敏感信息，建议你先在本地自行加密，再上传分享。这样即使提取码泄露，文件内容仍然受密码保护。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="stats-shell" aria-labelledby="statsTitle">
+        <div class="section-head stats-head">
+          <h2 id="statsTitle">实时流量与使用统计</h2>
+          <p>统计区放在页面底部，用更直观的趋势图呈现真实使用情况，同时不打断上传和下载主流程。</p>
+        </div>
+        <div class="stats-layout">
+          <article class="trend-card">
+            <div class="trend-head">
+              <div>
+                <div class="stat-label">7 日趋势</div>
+                <h3 class="trend-title">最近一周访问走势</h3>
+              </div>
+              <div class="trend-summary">
+                <span class="trend-summary-label">今日浏览量</span>
+                <strong class="trend-summary-value" data-stat-key="today.pageViews">--</strong>
+              </div>
+            </div>
+            <div id="statsChart" class="stats-chart" aria-live="polite"></div>
+            <p id="statsChartEmpty" class="stats-chart-empty hidden">有访问数据后，这里会显示最近 7 天的趋势图。</p>
+          </article>
+          <div class="stats-grid">
+            <article class="stat-card stat-card-compact">
+              <div class="stat-label">累计访问</div>
+              <div class="stat-value" data-stat-key="totals.pageViews">--</div>
+            </article>
+            <article class="stat-card stat-card-compact">
+              <div class="stat-label">今日访客</div>
+              <div class="stat-value" data-stat-key="today.uniqueVisitors">--</div>
+            </article>
+            <article class="stat-card stat-card-compact">
+              <div class="stat-label">累计上传</div>
+              <div class="stat-value" data-stat-key="totals.uploadsCompleted">--</div>
+            </article>
+            <article class="stat-card stat-card-compact">
+              <div class="stat-label">累计下载</div>
+              <div class="stat-value" data-stat-key="totals.downloadsCompleted">--</div>
+            </article>
+            <article class="stat-card stat-card-compact">
+              <div class="stat-label">当前有效文件</div>
+              <div class="stat-value" data-stat-key="activeFiles">--</div>
+            </article>
+            <article class="stat-card stat-card-compact">
+              <div class="stat-label">站点语言</div>
+              <div class="stat-value" data-stat-key="languages">--</div>
+            </article>
+          </div>
+        </div>
+        <p id="statsMeta" class="stats-meta">正在刷新实时统计数据...</p>
+      </section>
+
+      <footer class="footer">
+        <p>Flouho 是一个面向全球临时分享场景的大文件传输网站，当前以中文和英文为主，核心关键词覆盖匿名文件传输、免登录传文件、提取码下载和大文件分享。</p>
+      </footer>
+    </main>
+
+    <noscript>Flouho 需要启用 JavaScript 才能上传和下载文件，但页面介绍内容仍可被搜索引擎正常读取。</noscript>
+
+    <script src="/main.js"></script>
+  </body>
+</html>

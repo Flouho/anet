@@ -1,58 +1,295 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>匿名文件传输</title>
+    <title>Anonymous File Transfer Tool | Share Large Files Without Signup - Flouho</title>
+    <meta
+      name="description"
+      content="Flouho is an anonymous file transfer service for files up to 2GB, resumable uploads, access-code downloads, and download limits. No signup required."
+    />
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1" />
+    <meta name="theme-color" content="#0f172a" />
+    <link rel="canonical" href="https://www.flouho.com/" />
+    <link rel="alternate" hreflang="en" href="https://www.flouho.com/" />
+    <link rel="alternate" hreflang="zh-CN" href="https://www.flouho.com/zh/" />
+    <link rel="alternate" hreflang="x-default" href="https://www.flouho.com/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Flouho" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="zh_CN" />
+    <meta property="og:title" content="Anonymous File Transfer Tool | Share Large Files Without Signup" />
+    <meta
+      property="og:description"
+      content="Upload files, generate an 8-character access code, and let anyone download from any device. Supports files up to 2GB, resumable uploads, and download limits."
+    />
+    <meta property="og:url" content="https://www.flouho.com/" />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Anonymous File Transfer Tool | Share Large Files Without Signup" />
+    <meta
+      name="twitter:description"
+      content="A privacy-friendly file transfer tool for temporary sharing, cross-device transfers, and anonymous delivery."
+    />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "name": "Flouho",
+            "url": "https://www.flouho.com/",
+            "inLanguage": "en",
+            "description": "Anonymous file transfer service for files up to 2GB, access-code downloads, and download limits."
+          },
+          {
+            "@type": "WebApplication",
+            "name": "Flouho Anonymous File Transfer",
+            "url": "https://www.flouho.com/",
+            "applicationCategory": "UtilitiesApplication",
+            "operatingSystem": "Web",
+            "inLanguage": "en",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "description": "Anonymous file transfer tool with 2GB chunked uploads, resumable transfer, access-code downloads, and download limits."
+          }
+        ]
+      }
+    </script>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main id="appPage" class="container">
-      <h1>匿名文件传输</h1>
-      <p class="subtitle">无需注册，上传后拿到提取码，任意设备输入提取码即可下载。</p>
-
-      <div class="tabs">
-        <button class="tab active" data-tab="upload">上传</button>
-        <button class="tab" data-tab="download">下载</button>
-      </div>
-
-      <section id="upload" class="panel active">
-        <label class="upload-box" for="fileInput">
-          <input id="fileInput" type="file" />
-          <span>点击选择文件（支持大文件断点续传）</span>
-        </label>
-        <div class="download-limit-row">
-          <label for="maxDownloadsInput">允许下载次数</label>
-          <input id="maxDownloadsInput" type="number" min="1" max="1000" value="1" />
+    <main class="page">
+      <section class="hero">
+        <div class="site-topbar">
+          <a class="brand-link" href="/">Flouho</a>
+          <nav class="locale-switch" aria-label="Language switcher">
+            <a class="locale-link" href="/zh/" lang="zh-CN">中文</a>
+            <a class="locale-link active" href="/" lang="en">EN</a>
+          </nav>
         </div>
-        <div id="fileInfo" class="muted"></div>
-        <button id="uploadBtn" class="primary" disabled>开始上传</button>
-
-        <div id="uploadProgressWrap" class="hidden">
-          <div class="progress-bar"><div id="uploadProgress"></div></div>
-          <div id="uploadText" class="muted">0%</div>
-        </div>
-
-        <div id="codeBox" class="code-box hidden">
-          上传完成，下载提取码：
-          <span id="codeText"></span>
-          <div id="codeHint" class="muted"></div>
+        <div class="hero-copy">
+          <div class="eyebrow">Flouho</div>
+          <h1>Anonymous File Transfer Tool</h1>
+          <p class="subtitle">
+            Upload files without signing up, generate an 8-character access code, and let anyone download from any device. Supports files up to 2GB, resumable uploads, and short-lived storage for fast temporary sharing.
+          </p>
+          <div class="hero-actions">
+            <a class="primary-link" href="#appPage">Start Sharing</a>
+            <a class="secondary-link" href="#faq">View FAQs</a>
+          </div>
+          <ul class="feature-strip" aria-label="Core features">
+            <li>No signup</li>
+            <li>2GB per file</li>
+            <li>Resumable upload</li>
+            <li>Access-code download</li>
+            <li>Download limits</li>
+          </ul>
         </div>
       </section>
 
-      <section id="download" class="panel">
-        <div class="download-row">
-          <input id="codeInput" maxlength="8" placeholder="输入8位提取码" />
-          <button id="fetchMetaBtn" class="primary">查询文件</button>
+      <section id="appPage" class="container tool-shell">
+        <div class="section-head">
+          <h2>Upload or download files</h2>
+          <p>After upload, Flouho generates an 8-character access code. The recipient can open the site and download the file without creating an account.</p>
+          <p class="policy-note">If a file is never downloaded within 4 hours after upload completes, it is deleted automatically. Downloaded files are also removed after a short retention window to protect limited server storage.</p>
         </div>
-        <div id="downloadInfo" class="muted"></div>
-        <button id="downloadBtn" class="primary hidden">下载文件</button>
-        <div id="downloadProgressWrap" class="hidden">
-          <div class="progress-bar"><div id="downloadProgress"></div></div>
-          <div id="downloadText" class="muted">0%</div>
+
+        <div class="tabs" role="tablist" aria-label="File transfer actions">
+          <button id="upload-tab" class="tab active" data-tab="upload" role="tab" aria-selected="true" aria-controls="upload">Upload</button>
+          <button id="download-tab" class="tab" data-tab="download" role="tab" aria-selected="false" aria-controls="download">Download</button>
+        </div>
+
+        <section id="upload" class="panel active" role="tabpanel" aria-labelledby="upload-tab">
+          <label class="upload-box" for="fileInput">
+            <input id="fileInput" type="file" />
+            <span>Choose a file to start chunked, resumable upload</span>
+          </label>
+          <div class="download-limit-row">
+            <label for="maxDownloadsInput">Download limit (1-10)</label>
+            <input id="maxDownloadsInput" type="number" min="1" max="10" value="3" />
+          </div>
+          <div id="fileInfo" class="muted"></div>
+          <button id="uploadBtn" class="primary" disabled>Start Upload</button>
+
+          <div id="uploadProgressWrap" class="hidden">
+            <div class="progress-bar"><div id="uploadProgress"></div></div>
+            <div id="uploadText" class="muted">0%</div>
+          </div>
+
+          <div id="codeBox" class="code-box hidden">
+            Upload complete. Your access code:
+            <span id="codeText"></span>
+            <div id="codeHint" class="muted"></div>
+          </div>
+        </section>
+
+        <section id="download" class="panel" role="tabpanel" aria-labelledby="download-tab">
+          <div class="download-row">
+            <input id="codeInput" maxlength="8" placeholder="Enter 8-character access code" />
+            <button id="fetchMetaBtn" class="primary">Look Up File</button>
+          </div>
+          <div id="downloadInfo" class="muted"></div>
+          <button id="downloadBtn" class="primary hidden">Download File</button>
+          <div id="downloadProgressWrap" class="hidden">
+            <div class="progress-bar"><div id="downloadProgress"></div></div>
+            <div id="downloadText" class="muted">0%</div>
+          </div>
+        </section>
+      </section>
+
+      <section class="content-grid">
+        <article class="content-card">
+          <h2>Why Flouho works for temporary sharing</h2>
+          <p>
+            Many file-sharing products force users to sign up, install a client, or expose a personal account. Flouho keeps the flow to two steps: upload the file and share the access code. The recipient can open the page on desktop, tablet, or mobile and download immediately.
+          </p>
+          <p>
+            That makes it practical for temporary collaboration, cross-device transfer, and anonymous delivery where speed matters more than account creation.
+          </p>
+        </article>
+
+        <article class="content-card">
+          <h2>Best use cases</h2>
+          <ul class="bullet-list">
+            <li>Send archives, documents, and design assets to clients or teammates.</li>
+            <li>Move files between phone and computer without chat-app compression.</li>
+            <li>Deliver portfolios or materials anonymously, without an account.</li>
+            <li>Share a file with a single recipient and limit how many times it can be downloaded.</li>
+          </ul>
+        </article>
+
+        <article class="content-card">
+          <h2>Core capabilities</h2>
+          <ul class="bullet-list">
+            <li>Supports files up to 2GB for faster temporary transfers on a storage-limited server.</li>
+            <li>Chunked uploads make resumes possible after interruptions.</li>
+            <li>Recipients can check file details before downloading.</li>
+            <li>Download counts expire automatically once the limit is reached.</li>
+          </ul>
+        </article>
+
+        <article class="content-card">
+          <h2>How it works</h2>
+          <ol class="ordered-list">
+            <li>Select a file and set the download limit.</li>
+            <li>Upload it, then copy the 8-character access code.</li>
+            <li>Send the code to the recipient so they can download the file.</li>
+          </ol>
+        </article>
+      </section>
+
+      <section class="intent-shell">
+        <div class="section-head">
+          <h2>Popular Search Intents</h2>
+          <p>These landing pages target high-intent searches that people actually use when comparing file transfer tools.</p>
+        </div>
+        <div class="intent-grid">
+          <a class="intent-card" href="/solutions/large-file-transfer/">
+            <div class="intent-kicker">Large File Transfer</div>
+            <h3>Send files up to 2GB without signup</h3>
+            <p>Built for people searching for a simple way to send large files online with resumable uploads and a clean handoff.</p>
+          </a>
+          <a class="intent-card" href="/solutions/anonymous-file-sharing/">
+            <div class="intent-kicker">Anonymous File Sharing</div>
+            <h3>Share files privately without creating an account</h3>
+            <p>Optimized for privacy-first and no-signup file sharing workflows where speed matters more than account setup.</p>
+          </a>
+          <a class="intent-card" href="/solutions/send-files-with-code/">
+            <div class="intent-kicker">Access-Code Sharing</div>
+            <h3>Send files with a code instead of a long link</h3>
+            <p>Useful for searches around transfer codes, pickup codes, and controlled file downloads with a lightweight recipient flow.</p>
+          </a>
         </div>
       </section>
+
+      <section id="faq" class="faq-shell">
+        <div class="section-head">
+          <h2>Frequently asked questions</h2>
+          <p>These questions are written for search intent and help search engines understand the page topic.</p>
+        </div>
+        <div class="faq-list">
+          <article class="faq-item">
+            <h3>What is anonymous file transfer?</h3>
+            <p>It means the upload and download flow does not require a registered account. You can upload a file, generate a code, and share it directly.</p>
+          </article>
+          <article class="faq-item">
+            <h3>How large are uploads?</h3>
+            <p>Flouho currently supports files up to 2GB. Files are uploaded in chunks and can resume after interruptions.</p>
+          </article>
+          <article class="faq-item">
+            <h3>When should I use access-code downloads?</h3>
+            <p>Use them for temporary sharing, cross-device transfers, anonymous delivery, and one-time or limited-download workflows.</p>
+          </article>
+          <article class="faq-item">
+            <h3>What if the file is sensitive?</h3>
+            <p>If the file contains highly sensitive data, encrypt it locally before uploading. That keeps the content protected even if the code is shared.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="stats-shell" aria-labelledby="statsTitle">
+        <div class="section-head stats-head">
+          <h2 id="statsTitle">Live Usage Snapshot</h2>
+          <p>Placed at the bottom so trust signals support the product story without interrupting the primary upload and download flow.</p>
+        </div>
+        <div class="stats-layout">
+          <article class="trend-card">
+            <div class="trend-head">
+              <div>
+                <div class="stat-label">7-Day Traffic Trend</div>
+                <h3 class="trend-title">Recent page-view momentum</h3>
+              </div>
+              <div class="trend-summary">
+                <span class="trend-summary-label">Today</span>
+                <strong class="trend-summary-value" data-stat-key="today.pageViews">--</strong>
+              </div>
+            </div>
+            <div id="statsChart" class="stats-chart" aria-live="polite"></div>
+            <p id="statsChartEmpty" class="stats-chart-empty hidden">Traffic bars will appear here after recent activity is recorded.</p>
+          </article>
+          <div class="stats-grid">
+            <article class="stat-card stat-card-compact">
+              <div class="stat-label">Total Visits</div>
+              <div class="stat-value" data-stat-key="totals.pageViews">--</div>
+            </article>
+            <article class="stat-card stat-card-compact">
+              <div class="stat-label">Visitors Today</div>
+              <div class="stat-value" data-stat-key="today.uniqueVisitors">--</div>
+            </article>
+            <article class="stat-card stat-card-compact">
+              <div class="stat-label">Files Shared</div>
+              <div class="stat-value" data-stat-key="totals.uploadsCompleted">--</div>
+            </article>
+            <article class="stat-card stat-card-compact">
+              <div class="stat-label">Successful Downloads</div>
+              <div class="stat-value" data-stat-key="totals.downloadsCompleted">--</div>
+            </article>
+            <article class="stat-card stat-card-compact">
+              <div class="stat-label">Active Files</div>
+              <div class="stat-value" data-stat-key="activeFiles">--</div>
+            </article>
+            <article class="stat-card stat-card-compact">
+              <div class="stat-label">Languages</div>
+              <div class="stat-value" data-stat-key="languages">--</div>
+            </article>
+          </div>
+        </div>
+        <p id="statsMeta" class="stats-meta">Refreshing live usage metrics...</p>
+      </section>
+
+      <footer class="footer">
+        <p>Flouho is a global temporary file transfer site focused on English and Chinese, built around anonymous file transfer, access-code downloads, and large-file sharing.</p>
+      </footer>
     </main>
+
+    <noscript>Flouho needs JavaScript enabled to upload and download files, but the informational content remains indexable.</noscript>
 
     <script src="/main.js"></script>
   </body>
